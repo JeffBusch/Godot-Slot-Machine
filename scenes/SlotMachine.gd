@@ -106,8 +106,9 @@ func start() -> void:
 		print(result)
 		# Spins all reels
 		for reel in reels:
+			tiles_moved_per_reel[reel] = 0
 			_spin_reel(reel)
-		  # Spins the next reel a little bit later
+			# Spins the next reel a little bit later
 			if reel_delay > 0:
 				yield(get_tree().create_timer(reel_delay), "timeout")
   
@@ -122,8 +123,6 @@ func stop():
 
 # Is called when the animation stops
 func _stop() -> void:
-	for reel in reels:
-		tiles_moved_per_reel[reel] = 0
 	state = State.OFF
 	emit_signal("stopped")
 
@@ -147,29 +146,35 @@ func _on_tile_moved(tile: SlotTile, _nodePath) -> void:
 	# Count how many tiles moved per reel
 	tiles_moved_per_reel[reel] += 1
 	var reel_runs := current_runs(reel)
-
-  # If tile moved out of the viewport, move it to the invisible row at the top
+	
+	# If tile moved out of the viewport, move it to the invisible row at the top
 	if (tile.position.y > grid_pos[0][-1].y):
 		tile.position.y = grid_pos[0][0].y
-  # Set a new random texture
+	
+	# Set a new random texture
 	var current_idx = total_runs - reel_runs
 	if (current_idx < tiles_per_reel):
 		var result_texture = pictures[result.tiles[reel][current_idx]]
 		tile.set_texture(result_texture)
 	else:
+		#print(str(reel) + " / " + str(current_idx))
 		tile.set_texture(_randomTexture())
-
 
   # Stop moving after the reel ran expected_runs times
   # Or if the player stopped it
-	if (state != State.OFF && reel_runs != total_runs):
+	if (state != State.OFF && reel_runs < total_runs):
 		tile.move_by(Vector2(0, tile_size.y))
 	else: # stop moving this reel
-		tile.spin_down()
 		# When last reel stopped, machine is stopped
-		print(str(reel) + " - " + str(reels))
+		#print(str(reel) + " - " + str(reels))
 		if reel == reels - 1:
-			_stop()
+			if reel_runs >= total_runs:
+				tile.spin_down()
+				_stop()
+			else:
+				tile.move_by(Vector2(0, tile_size.y))
+		else:
+			tile.spin_down()
 
 # Divide it by the number of tiles to know how often the whole reel moved
 # Since this function is called by each tile, the number changes (e.g. for 6 tiles: 1/6, 2/6, ...)
